@@ -15,7 +15,7 @@ include(joinpath(@__DIR__, "..", "src", "historical.jl"))
 include(joinpath(@__DIR__, "..", "src", "simulation.jl"))
 
 using .Historical, .Simulation
-using CSV, DataFrames
+using CSV, DataFrames, Printf
 
 # ── Configuration ─────────────────────────────────────────────────────────────
 const CSV_PATH = "data/nfl_games.csv"

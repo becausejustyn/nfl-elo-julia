@@ -93,11 +93,12 @@ end
 Return team_a's win probability given current ratings dict.
 Set neutral=true for neutral-site games (no HFA applied).
 """
-function win_probability(team_a::String, team_b::String,
+function win_probability(team_a::AbstractString, team_b::AbstractString,
                          ratings::Dict{String, Float64};
                          neutral::Bool = false)::Float64
-    r_a     = get(ratings, team_a, INITIAL_ELO)
-    r_b     = get(ratings, team_b, INITIAL_ELO)
+    ta, tb  = string(team_a), string(team_b)
+    r_a     = get(ratings, ta, INITIAL_ELO)
+    r_b     = get(ratings, tb, INITIAL_ELO)
     adj_r_a = neutral ? r_a : r_a + HFA
     return expected_score(adj_r_a, r_b)
 end

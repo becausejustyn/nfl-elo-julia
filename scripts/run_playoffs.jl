@@ -18,7 +18,7 @@ include(joinpath(@__DIR__, "..", "src", "simulation.jl"))
 include(joinpath(@__DIR__, "..", "src", "plots.jl"))
 
 using .Historical, .Simulation, .EloPlots
-using CSV, DataFrames
+using CSV, DataFrames, Printf, Plots
 
 # ── Configuration ─────────────────────────────────────────────────────────────
 const CSV_PATH = "data/nfl_games.csv"  # path to your games CSV

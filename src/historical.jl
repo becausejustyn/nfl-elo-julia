@@ -27,6 +27,8 @@ function load_games(path::String)::DataFrame
     df = CSV.read(path, DataFrame)
 
     df.date    = Date.(string.(df.date))
+    df.team1   = string.(df.team1)
+    df.team2   = string.(df.team2)
     df.neutral = Bool.(df.neutral)
     df.playoff = Bool.(df.playoff)
     df.score1  = Int.(df.score1)
@@ -60,7 +62,7 @@ function compute_historical_elos(df::DataFrame)
     df[!, :computed_prob1] = zeros(Float64, nrow(df))
 
     for row in eachrow(df)
-        t1, t2 = row.team1, row.team2
+        t1, t2 = string(row.team1), string(row.team2)
 
         !haskey(ratings, t1) && (ratings[t1] = Elo.INITIAL_ELO)
         !haskey(ratings, t2) && (ratings[t2] = Elo.INITIAL_ELO)

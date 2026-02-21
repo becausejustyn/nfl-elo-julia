@@ -182,21 +182,6 @@ julia --project=. scripts/run_season_sim.jl
 
 Output: `results/season_simulation.csv`.
 
-### Jupyter Notebook
-
-The `notebooks/nfl_elo_simulation.ipynb` notebook is a self-contained version of the full pipeline, ideal for interactive exploration and visualization.
-
-```bash
-jupyter notebook notebooks/nfl_elo_simulation.ipynb
-```
-
-Make sure IJulia is installed and the Julia kernel is available:
-
-```julia
-using Pkg; Pkg.add("IJulia")
-using IJulia; installkernel("Julia")
-```
-
 ---
 
 ## Configuration

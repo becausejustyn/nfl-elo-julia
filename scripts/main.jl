@@ -15,7 +15,7 @@ Steps:
   6. (Optional) Run example playoff simulation
 """
 
-using ArgParse, CSV, DataFrames, Dates
+using ArgParse, CSV, DataFrames, Dates, Printf, Plots
 
 # ── Load project modules ──────────────────────────────────────────────────────
 include(joinpath(@__DIR__, "..", "src", "elo.jl"))
@@ -41,7 +41,7 @@ function parse_args()
             help   = "Save plots to results/ directory"
             action = :store_true
     end
-    return parse_args(s)
+    return ArgParse.parse_args(s)
 end
 
 # ── Main pipeline ─────────────────────────────────────────────────────────────
