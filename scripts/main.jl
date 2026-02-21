@@ -17,7 +17,7 @@ Steps:
 
 using ArgParse, CSV, DataFrames, Dates, Printf, Plots
 
-# ── Load project modules ──────────────────────────────────────────────────────
+# load project modules 
 include(joinpath(@__DIR__, "..", "src", "elo.jl"))
 include(joinpath(@__DIR__, "..", "src", "historical.jl"))
 include(joinpath(@__DIR__, "..", "src", "simulation.jl"))
@@ -26,7 +26,7 @@ include(joinpath(@__DIR__, "..", "src", "plots.jl"))
 
 using .Historical, .Simulation, .Metrics, .EloPlots
 
-# ── Argument parsing ──────────────────────────────────────────────────────────
+# argument parsing 
 function parse_args()
     s = ArgParseSettings(description = "NFL Elo Rating Simulation Pipeline")
     @add_arg_table s begin
@@ -44,7 +44,7 @@ function parse_args()
     return ArgParse.parse_args(s)
 end
 
-# ── Main pipeline ─────────────────────────────────────────────────────────────
+# main pipeline
 function main()
     args = parse_args()
 

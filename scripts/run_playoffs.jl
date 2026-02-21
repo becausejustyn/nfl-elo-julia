@@ -20,18 +20,18 @@ include(joinpath(@__DIR__, "..", "src", "plots.jl"))
 using .Historical, .Simulation, .EloPlots
 using CSV, DataFrames, Printf, Plots
 
-# ── Configuration ─────────────────────────────────────────────────────────────
+# Configuration 
 const CSV_PATH = "data/nfl_games.csv"  # path to your games CSV
 const N_SIMS   = 100_000               # Monte Carlo iterations
 
-# ── Playoff Seeds ─────────────────────────────────────────────────────────────
+# Playoff Seeds 
 # Order: [1st seed, 2nd, 3rd, 4th, 5th, 6th, 7th]
 # Edit these to reflect the actual playoff bracket each season.
 
 const AFC_SEEDS = ["KC",  "BUF", "BAL", "HOU", "LAC", "DEN", "PIT"]
 const NFC_SEEDS = ["DET", "PHI", "LAR", "TB",  "MIN", "WSH", "GB" ]
 
-# ── Run ───────────────────────────────────────────────────────────────────────
+# run 
 println("Loading game data and computing Elo ratings...")
 df = Historical.load_games(CSV_PATH)
 df, ratings, _ = Historical.compute_historical_elos(df)

@@ -17,11 +17,11 @@ include(joinpath(@__DIR__, "..", "src", "simulation.jl"))
 using .Historical, .Simulation
 using CSV, DataFrames, Printf
 
-# ── Configuration ─────────────────────────────────────────────────────────────
+# Configuration 
 const CSV_PATH = "data/nfl_games.csv"
 const N_SIMS   = 50_000
 
-# ── Schedule ──────────────────────────────────────────────────────────────────
+# schedule
 # Format: (team1 = HOME team, team2 = AWAY team, neutral = false/true)
 # For neutral-site games (e.g. London, Mexico City, Super Bowl) set neutral=true.
 
@@ -36,7 +36,7 @@ const SCHEDULE = [
     (team1 = "MIN", team2 = "CHI",  neutral = false),
 ]
 
-# ── Run ───────────────────────────────────────────────────────────────────────
+# run simulation
 println("Loading game data and computing Elo ratings...")
 df = Historical.load_games(CSV_PATH)
 df, ratings, _ = Historical.compute_historical_elos(df)

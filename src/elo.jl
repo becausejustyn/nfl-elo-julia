@@ -9,7 +9,7 @@ module Elo
 
 export expected_score, mov_multiplier, update_elo, revert_ratings!, win_probability
 
-# ── Constants (can be overridden via Config) ──────────────────────────────────
+# Constants (can be overridden via Config)
 const K           = 20.0
 const HFA         = 65.0
 const INITIAL_ELO = 1500.0
