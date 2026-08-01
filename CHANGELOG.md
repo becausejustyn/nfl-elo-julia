@@ -1,21 +1,17 @@
 # Changelog
 
-All notable changes to this project will be documented in this file.
+## Unreleased
 
-## Version 1.0.0
+- Use the package module in all scripts.
+- Validate input data before the rating calculation.
+- Keep next-season teams out of the prior season snapshot.
+- Use the higher seed as the home team in conference championship games.
+- Limit current rankings to teams from the latest season.
+- Add repeatable simulations and automated tests.
+- Use consistent technical English in documentation and messages.
 
-### Fixed
+## 0.1.0
 
-- **Package structure**: Added `src/NFLElo.jl` to satisfy Julia's package layout. `Project.toml` defines NFLElo as a package, but the required main module file was missing, causing `Pkg.instantiate()` to fail.
-
-- **scripts/main.jl**:
-  - Added `using Printf, Plots` — `@printf` and `savefig` were undefined.
-  - Changed `parse_args(s)` to `ArgParse.parse_args(s)` to avoid shadowing ArgParse's function.
-
-- **src/historical.jl**: CSV.jl loads team columns as `String3`, while `win_probability` expected `String`. Added conversion to `String` in `load_games` and `compute_historical_elos`.
-
-- **src/elo.jl**: Updated `win_probability` to accept `AbstractString` (so `String3` is allowed) and to convert to `String` for dict lookups.
-
-- **scripts/run_playoffs.jl**: Added `using Printf, Plots` so `@printf` and `savefig` are defined.
-
-- **scripts/run_season_sim.jl**: Added `using Printf` so `@printf` is defined.
+- Add the historical Elo rating pipeline.
+- Add season and playoff simulations.
+- Add model metrics and plots.

@@ -1,70 +1,56 @@
 """
-    simulation.jl
+    simulate_game(team_a, team_b, ratings; neutral=false, rng=Random.default_rng())
 
-Monte Carlo simulation functions for NFL seasons and playoff brackets.
-Uses frozen Elo ratings (no in-sim rating updates) as specified.
-
-Exports:
-  simulate_game         — single game outcome
-  simulate_season       — full schedule Monte Carlo
-  simulate_bracket_single — one conference bracket → winner
-  simulate_super_bowl   — full AFC + NFC + Super Bowl simulation
+Simulate one game. Return the team name of the winner.
 """
-
-module Simulation
-
-using DataFrames
-include("elo.jl")
-using .Elo
-
-export simulate_game, simulate_season, simulate_bracket_single, simulate_super_bowl
-
-"""
-    simulate_game(team_a, team_b, ratings; neutral=false) -> String
-
-Simulate a single game via Bernoulli draw on win probability.
-Returns the winner's team string.
-"""
-function simulate_game(team_a::String, team_b::String,
+function simulate_game(team_a::AbstractString, team_b::AbstractString,
                        ratings::Dict{String, Float64};
-                       neutral::Bool = false)::String
+                       neutral::Bool = false,
+                       rng::AbstractRNG = Random.default_rng())
     prob_a = win_probability(team_a, team_b, ratings; neutral = neutral)
-    return rand() < prob_a ? team_a : team_b
+    return rand(rng) < prob_a ? String(team_a) : String(team_b)
 end
 
 """
     simulate_season(schedule, ratings; n_sims=10_000) -> DataFrame
 
-Monte Carlo simulation over a list of games.
+Simulate all games in a schedule.
 
 Arguments:
-  - schedule : Vector of NamedTuples with fields (team1, team2, neutral)
-               team1 is the home team when neutral = false
-  - ratings  : Elo ratings dict (not mutated)
-  - n_sims   : number of Monte Carlo iterations (default 10,000)
+  - `schedule`: A vector of named tuples. Each tuple has the fields `team1`,
+    `team2`, and `neutral`. Team 1 is at home when `neutral` is false.
+  - `ratings`: Elo ratings. The function does not change these ratings.
+  - `n_sims`: The number of simulations. The default is 10,000.
 
-Returns a DataFrame sorted by avg_wins descending.
+The function returns a table. It sorts the table by average wins.
 """
 function simulate_season(schedule::Vector,
                          ratings::Dict{String, Float64};
-                         n_sims::Int = 10_000)::DataFrame
-
-    all_teams = unique([t for g in schedule for t in (g.team1, g.team2)])
+                         n_sims::Int = 10_000,
+                         rng::AbstractRNG = Random.default_rng())
+    n_sims > 0 || throw(ArgumentError("n_sims must be greater than zero"))
+    all_teams = unique([String(t) for g in schedule for t in (g.team1, g.team2)])
     win_totals = Dict(t => 0 for t in all_teams)
 
     for _ in 1:n_sims
         wins = Dict(t => 0 for t in all_teams)
         for game in schedule
-            winner = simulate_game(game.team1, game.team2, ratings; neutral = game.neutral)
+            winner = simulate_game(
+                game.team1,
+                game.team2,
+                ratings;
+                neutral = game.neutral,
+                rng,
+            )
             wins[winner] += 1
         end
-        for (t, w) in wins
-            win_totals[t] += w
+        for (team, wins_for_team) in wins
+            win_totals[team] += wins_for_team
         end
     end
 
     results = DataFrame(
-        team     = all_teams,
+        team = all_teams,
         avg_wins = [win_totals[t] / n_sims for t in all_teams]
     )
     sort!(results, :avg_wins, rev = true)
@@ -74,73 +60,76 @@ end
 """
     simulate_bracket_single(seeds, ratings) -> String
 
-Simulate one 7-team single-elimination conference bracket.
-  - seeds : Vector of 7 team strings ordered by seed [1st ... 7th]
-  - Seed 1 receives a first-round bye
-  - Home field goes to the higher seed through the Conference Championship
-  - Conference Championship is played at a neutral site
+Simulate one conference bracket. The bracket must have seven teams.
 
-Returns the conference champion's team string.
+Put the teams in seed order. Put the first seed first. The first seed does not
+play in the wild-card round. The higher seed is at home in all conference games.
+
+The function returns the name of the conference champion.
 """
-function simulate_bracket_single(seeds::Vector{String},
-                                  ratings::Dict{String, Float64})::String
-    @assert length(seeds) == 7 "Expected 7 seeds, got $(length(seeds))"
+function simulate_bracket_single(seeds::AbstractVector{<:AbstractString},
+                                 ratings::Dict{String, Float64};
+                                 rng::AbstractRNG = Random.default_rng())
+    length(seeds) == 7 || throw(ArgumentError("Expected 7 seeds, got $(length(seeds))"))
+    allunique(seeds) || throw(ArgumentError("Each seed must have a different team"))
+    teams = String.(seeds)
 
-    # Wild Card (seed 1 has bye)
+    # The first seed does not play in this round.
     wc = [
-        simulate_game(seeds[2], seeds[7], ratings; neutral = false),  # 2 hosts 7
-        simulate_game(seeds[3], seeds[6], ratings; neutral = false),  # 3 hosts 6
-        simulate_game(seeds[4], seeds[5], ratings; neutral = false),  # 4 hosts 5
+        simulate_game(teams[2], teams[7], ratings; rng),
+        simulate_game(teams[3], teams[6], ratings; rng),
+        simulate_game(teams[4], teams[5], ratings; rng),
     ]
 
-    # Divisional — seed 1 re-enters; higher seed hosts
-    div_field  = sort(vcat([seeds[1]], wc), by = t -> findfirst(==(t), seeds))
-    d1 = simulate_game(div_field[1], div_field[4], ratings; neutral = false)
-    d2 = simulate_game(div_field[2], div_field[3], ratings; neutral = false)
+    seed_number = Dict(team => seed for (seed, team) in enumerate(teams))
+    div_field = sort(vcat([teams[1]], wc), by = team -> seed_number[team])
+    d1 = simulate_game(div_field[1], div_field[4], ratings; rng)
+    d2 = simulate_game(div_field[2], div_field[3], ratings; rng)
 
-    # Conference Championship — neutral site
-    return simulate_game(d1, d2, ratings; neutral = true)
+    championship = sort([d1, d2], by = team -> seed_number[team])
+    return simulate_game(championship[1], championship[2], ratings; rng)
 end
 
 """
     simulate_super_bowl(afc_seeds, nfc_seeds, ratings; n_sims=100_000) -> DataFrame
 
-Full playoff simulation: AFC bracket + NFC bracket + Super Bowl.
-Ratings are frozen at final regular-season values (no updates during sim).
+Simulate the American Football Conference (AFC) bracket, the National Football
+Conference (NFC) bracket, and the Super Bowl. The simulation does not change the
+ratings.
 
 Arguments:
-  - afc_seeds / nfc_seeds : 7-element Vector of team strings ordered by seed
-  - ratings               : final regular-season Elo ratings
-  - n_sims                : Monte Carlo iterations (default 100,000)
+  - `afc_seeds` and `nfc_seeds`: Seven team names in seed order.
+  - `ratings`: The Elo ratings at the end of the regular season.
+  - `n_sims`: The number of simulations. The default is 100,000.
 
-Returns DataFrame with columns [team, conf_win_pct, sb_win_pct], sorted by sb_win_pct.
+The function returns the conference and Super Bowl win percentages for each team.
 """
-function simulate_super_bowl(afc_seeds::Vector{String},
-                              nfc_seeds::Vector{String},
-                              ratings::Dict{String, Float64};
-                              n_sims::Int = 100_000)::DataFrame
-
-    all_teams  = vcat(afc_seeds, nfc_seeds)
-    conf_wins  = Dict(t => 0 for t in all_teams)
-    sb_wins    = Dict(t => 0 for t in all_teams)
+function simulate_super_bowl(afc_seeds::AbstractVector{<:AbstractString},
+                             nfc_seeds::AbstractVector{<:AbstractString},
+                             ratings::Dict{String, Float64};
+                             n_sims::Int = 100_000,
+                             rng::AbstractRNG = Random.default_rng())
+    n_sims > 0 || throw(ArgumentError("n_sims must be greater than zero"))
+    all_teams = string.(vcat(afc_seeds, nfc_seeds))
+    allunique(all_teams) || throw(ArgumentError("A team can occur only once in the playoffs"))
+    conf_wins = Dict(team => 0 for team in all_teams)
+    sb_wins = Dict(team => 0 for team in all_teams)
 
     for _ in 1:n_sims
-        afc_winner = simulate_bracket_single(afc_seeds, ratings)
-        nfc_winner = simulate_bracket_single(nfc_seeds, ratings)
+        afc_winner = simulate_bracket_single(afc_seeds, ratings; rng)
+        nfc_winner = simulate_bracket_single(nfc_seeds, ratings; rng)
         conf_wins[afc_winner] += 1
         conf_wins[nfc_winner] += 1
 
-        sb_winner = simulate_game(afc_winner, nfc_winner, ratings; neutral = true)
+        sb_winner = simulate_game(afc_winner, nfc_winner, ratings; neutral = true, rng)
         sb_wins[sb_winner] += 1
     end
 
     results = DataFrame(
-        team         = all_teams,
+        team = all_teams,
         conf_win_pct = [round(conf_wins[t] / n_sims * 100, digits = 2) for t in all_teams],
-        sb_win_pct   = [round(sb_wins[t]   / n_sims * 100, digits = 2) for t in all_teams]
+        sb_win_pct = [round(sb_wins[t] / n_sims * 100, digits = 2) for t in all_teams]
     )
     sort!(results, :sb_win_pct, rev = true)
     return results
 end
-
-end # module

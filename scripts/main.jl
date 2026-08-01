@@ -1,50 +1,21 @@
-"""
-    main.jl
+using ArgParse, CSV, DataFrames, NFLElo, Plots, Printf
 
-Entry point for the NFL Elo simulation pipeline.
+const PROJECT_ROOT = normpath(joinpath(@__DIR__, ".."))
+const RESULTS_DIR = joinpath(PROJECT_ROOT, "results")
 
-Usage:
-    julia scripts/main.jl --csv data/nfl_games.csv
-
-Steps:
-  1. Load and validate game data
-  2. Compute historical Elo ratings (full chronological pass)
-  3. Print model accuracy metrics
-  4. Display current team rankings
-  5. Export ratings and enriched game data to results/
-  6. (Optional) Run example playoff simulation
-"""
-
-using ArgParse, CSV, DataFrames, Dates, Printf, Plots
-
-# load project modules 
-include(joinpath(@__DIR__, "..", "src", "elo.jl"))
-include(joinpath(@__DIR__, "..", "src", "historical.jl"))
-include(joinpath(@__DIR__, "..", "src", "simulation.jl"))
-include(joinpath(@__DIR__, "..", "src", "metrics.jl"))
-include(joinpath(@__DIR__, "..", "src", "plots.jl"))
-
-using .Historical, .Simulation, .Metrics, .EloPlots
-
-# argument parsing 
 function parse_args()
     s = ArgParseSettings(description = "NFL Elo Rating Simulation Pipeline")
     @add_arg_table s begin
         "--csv"
-            help    = "Path to the games CSV file"
-            default = "data/nfl_games.csv"
-        "--sims"
-            help    = "Number of Monte Carlo iterations for playoff simulation"
-            arg_type = Int
-            default  = 100_000
+            help = "Read game data from this CSV file."
+            default = joinpath(PROJECT_ROOT, "data", "nfl_games.csv")
         "--plot"
-            help   = "Save plots to results/ directory"
+            help = "Save plots in the results directory."
             action = :store_true
     end
     return ArgParse.parse_args(s)
 end
 
-# main pipeline
 function main()
     args = parse_args()
 
@@ -52,54 +23,57 @@ function main()
     println("  NFL Elo Simulation Pipeline")
     println("="^60)
 
-    # 1. Load data
     println("\n[1/5] Loading game data from: $(args["csv"])")
-    df = Historical.load_games(args["csv"])
+    df = load_games(args["csv"])
+    println("Loaded $(nrow(df)) games from $(minimum(df.season)) to $(maximum(df.season)).")
 
-    # 2. Compute historical Elos
     println("\n[2/5] Computing historical Elo ratings...")
-    df, ratings, season_history = Historical.compute_historical_elos(df)
+    df, ratings, _ = compute_historical_elos(df)
+    println("Tracked $(length(ratings)) teams.")
 
-    # 3. Model accuracy
     println("\n[3/5] Evaluating model accuracy...")
-    Metrics.evaluate_model(df)
+    evaluate_model(df)
 
-    # 4. Current rankings
     println("\n[4/5] Current team rankings:")
-    sorted = sort(collect(ratings), by = x -> x[2], rev = true)
+    latest_season = maximum(df.season)
+    latest_games = df[df.season .== latest_season, :]
+    active_teams = Set(vcat(latest_games.team1, latest_games.team2))
+    current_ratings = Dict(team => ratings[team] for team in active_teams)
+    sorted = sort(collect(current_ratings), by = last, rev = true)
     @printf("  %4s │ %-4s │ %s\n", "Rank", "Team", "Elo")
     println("  ─────┼──────┼────────")
     for (i, (team, elo)) in enumerate(sorted)
         @printf("  %4d │ %-4s │ %.1f\n", i, team, elo)
     end
 
-    # 5. Export results
     println("\n[5/5] Exporting results...")
-    mkpath("results")
+    mkpath(RESULTS_DIR)
 
     ratings_df = DataFrame(
         rank = 1:length(sorted),
-        team = [x[1] for x in sorted],
-        elo  = [x[2] for x in sorted]
+        team = first.(sorted),
+        elo = last.(sorted),
     )
-    CSV.write("results/elo_ratings_current.csv", ratings_df)
-    println("  → results/elo_ratings_current.csv")
+    ratings_path = joinpath(RESULTS_DIR, "elo_ratings_current.csv")
+    CSV.write(ratings_path, ratings_df)
+    println("  Wrote $ratings_path")
 
     output_df = select(df, :date, :season, :playoff, :neutral,
-                           :team1, :team2, :score1, :score2, :result1,
-                           :computed_elo1, :computed_elo2, :computed_prob1)
-    CSV.write("results/elo_game_predictions.csv", output_df)
-    println("  → results/elo_game_predictions.csv")
+                       :team1, :team2, :score1, :score2, :result1,
+                       :computed_elo1, :computed_elo2, :computed_prob1)
+    predictions_path = joinpath(RESULTS_DIR, "elo_game_predictions.csv")
+    CSV.write(predictions_path, output_df)
+    println("  Wrote $predictions_path")
 
-    # Optional: plots
     if args["plot"]
-        println("\n  Generating plots...")
-        p1 = EloPlots.plot_ratings_bar(ratings)
-        savefig(p1, "results/current_ratings.png")
-        println("  → results/current_ratings.png")
+        println("\n  Creating the ratings plot...")
+        ratings_plot = plot_ratings_bar(current_ratings)
+        plot_path = joinpath(RESULTS_DIR, "current_ratings.png")
+        savefig(ratings_plot, plot_path)
+        println("  Wrote $plot_path")
     end
 
-    println("\n✓ Pipeline complete.\n")
+    println("\nPipeline complete.\n")
 end
 
-main()
+abspath(PROGRAM_FILE) == abspath(@__FILE__) && main()
